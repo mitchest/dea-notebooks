@@ -33,6 +33,7 @@ from rasterio.features import geometry_mask
 from rasterio.features import rasterize
 from sklearn.cluster import KMeans
 from sklearn.base import ClusterMixin
+from datacube_stats.statistics import GeoMedian
 import sys
 
 sys.path.append('../Scripts')
@@ -324,16 +325,7 @@ def get_training_data_for_shp(path,
     A list of numpy.arrays containing classes and extracted data for 
     each pixel or polygon.
 
-    """
-    # Import hdstats as only needed for this function
-    if feature_stats == 'geomedian':
-        try:
-            import hdstats
-        except ImportError as err:
-            raise
-            raise ImportError('Can not import hdstats module needed to calculate'
-                              ' geomedian.\n{}'.format(err))
-            
+    """           
     dc = datacube.Datacube(app='training_data')
     query = {'time': time}
     query['crs'] = crs
@@ -386,8 +378,9 @@ def get_training_data_for_shp(path,
         # Convert mask from numpy to DataArray
         mask = xr.DataArray(mask, coords=(data.y, data.x))
         # Mask out areas that were not within the labelled feature
+        # 38% of this function is spent on this line
         data_masked = data.where(mask == poly_class_id, np.nan)
-
+        
         if feature_stats is None:
             # If no summary stats were requested then
             # extract all pixel values
@@ -395,22 +388,13 @@ def get_training_data_for_shp(path,
             # Make a labelled array of identical size
             flat_val = np.repeat(poly_class_id, flat_train.shape[0])
             stacked = np.hstack((np.expand_dims(flat_val, axis=1), flat_train))
-        elif feature_stats == 'mean':
-            # For the mean of each polygon take the mean over all
-            # axis, ignoring masked out values (nan).
-            # This gives a single pixel value for each band
-            flat_train = data_masked.mean(axis=None, skipna=True)
+        elif feature_stats in ['mean', 'median', 'std']:
+            method_to_call = getattr(data_masked, feature_stats)
+            flat_train = method_to_call()
             flat_train = flat_train.to_array()
             stacked = np.hstack((poly_class_id, flat_train))
-        elif feature_stats == 'geomedian':
-            # For the geomedian flatten so have a 2D array with
-            # bands and pixel values. Then use hdstats
-            # to calculate the geomedian
-            flat_train = sklearn_flatten(data_masked)
-            flat_train_median = hdstats.geomedian(flat_train, axis=0)
-            # Geomedian will return a single value for each band so join
-            # this with class id to create a single row in output
-            stacked = np.hstack((poly_class_id, flat_train_median))
+        else:
+            raise Exception(f'{feature_stats} is not one of the supported reduce functions (std, mean, median)')
 
         # Append training data and label to list
         out.append(stacked)
