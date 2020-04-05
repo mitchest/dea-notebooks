@@ -33,7 +33,7 @@ from rasterio.features import geometry_mask
 from rasterio.features import rasterize
 from sklearn.cluster import KMeans
 from sklearn.base import ClusterMixin
-from datacube_stats.statistics import GeoMedian
+#from datacube_stats.statistics import GeoMedian
 import sys
 
 sys.path.append('../Scripts')
@@ -281,7 +281,6 @@ def predict_xr(model, input_xr, progress=True):
 
 
 def get_training_data_for_shp(path, 
-                              out, 
                               product, 
                               time, 
                               crs='EPSG:3577', 
@@ -363,6 +362,8 @@ def get_training_data_for_shp(path,
         pass
 
     print("Rasterizing features and extracting data...")
+    
+    out = []
     # Initialize counter for status messages.
     i = 0
     # Go through each feature
@@ -403,7 +404,7 @@ def get_training_data_for_shp(path,
         i = i + 1
 
     # Return a list of labels for columns in output array
-    return [field] + list(data.data_vars)
+    return {'column_names':[field] + list(data.data_vars), 'data':out}
 
 
 class KMeans_tree(ClusterMixin):
