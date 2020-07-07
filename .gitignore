@@ -5,4 +5,7 @@
 *.tif
 *.xml
 __pycache__
+*.py[cod]
+.mypy_cache/
+dask-worker-space/
 Transitory_notebooks/
