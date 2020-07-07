@@ -42,7 +42,7 @@ from skimage.measure import label
 from skimage.measure import find_contours
 from shapely.geometry import LineString, MultiLineString, shape
 from datacube.helpers import write_geotiff
-from datacube.utils.geometry import CRS, Geometry
+from datacube.utils.geometry import CRS, Geometry, assign_crs
 
 
 def xr_vectorize(da, 
@@ -296,8 +296,8 @@ def xr_rasterize(gdf,
                         name=name if name else None)
     
     # Add back crs if xarr.attrs doesn't have it
-    if 'crs' not in xarr.attrs:
-        xarr.attrs['crs'] = str(crs)
+    if xarr.geobox is None:
+        xarr = assign_crs(xarr, str(crs))
     
     if export_tiff:        
         print(f"Exporting GeoTIFF to {export_tiff}")
